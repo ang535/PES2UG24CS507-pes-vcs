@@ -171,6 +171,49 @@ int dir_count = 0;
         }
     }
 }
+for (int d = 0; d < dir_count; d++) {
+    Tree subtree;
+    subtree.count = 0;
+
+    size_t dir_len = strlen(dirs[d]);
+
+    for (int i = 0; i < index.count; i++) {
+        if (strncmp(index.entries[i].path, dirs[d], dir_len) == 0 &&
+            index.entries[i].path[dir_len] == '/') {
+
+            const char *rest = index.entries[i].path + dir_len + 1;
+
+            // only direct children (no nested dirs yet)
+            if (strchr(rest, '/') == NULL) {
+                TreeEntry *e = &subtree.entries[subtree.count++];
+
+                e->mode = index.entries[i].mode;
+                e->hash = index.entries[i].hash;
+                strcpy(e->name, rest);
+            }
+        }
+    }
+
+    // serialize subtree
+    void *sub_data;
+    size_t sub_len;
+    ObjectID sub_id;
+
+    if (tree_serialize(&subtree, &sub_data, &sub_len) != 0) return -1;
+
+    if (object_write(OBJ_TREE, sub_data, sub_len, &sub_id) != 0) {
+        free(sub_data);
+        return -1;
+    }
+
+    free(sub_data);
+
+    // add subtree to root
+    TreeEntry *e = &tree.entries[tree.count++];
+    e->mode = 0040000; // directory
+    e->hash = sub_id;
+    strcpy(e->name, dirs[d]);
+}
 
      void *data;
     size_t len;
