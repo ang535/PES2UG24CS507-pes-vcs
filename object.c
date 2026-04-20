@@ -163,6 +163,11 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         free(full);
         return -1;
     }
+int dir_fd = open(dir, O_DIRECTORY);
+if (dir_fd >= 0) {
+    fsync(dir_fd);
+    close(dir_fd);
+}
 
     free(full);
     return 0;
