@@ -148,11 +148,17 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         return -1;
     }
 
-    if (write(fd, full, total_len) != (ssize_t)total_len) {
+    ssize_t written = 0;
+
+while (written < (ssize_t)total_len) {
+    ssize_t n = write(fd, full + written, total_len - written);
+    if (n <= 0) {
         close(fd);
         free(full);
         return -1;
     }
+    written += n;
+}
 
     // Step 9: fsync and close
     fsync(fd);
