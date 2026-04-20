@@ -25,6 +25,7 @@
 #include <dirent.h>
 
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 
 // Find an index entry by path (linear scan).
 IndexEntry* index_find(Index *index, const char *path) {
@@ -159,7 +160,7 @@ char line[512];
         }
 
         hex_to_hash(hash_hex, &e->hash);
-        e->mtime = mtime;
+        e->mtime_sec = mtime;
         e->size = size;
 
         index->count++;
@@ -193,7 +194,7 @@ int index_save(const Index *index) {
         fprintf(f, "%o %s %lu %lu %s\n",
                 e->mode,
                 hash_hex,
-                e->mtime,
+                e->mtime_sec,
                 e->size,
                 e->path);
     }
@@ -257,7 +258,7 @@ int index_add(Index *index, const char *path) {
         // update existing
         index->entries[idx].mode = get_file_mode(path);
         index->entries[idx].hash = id;
-        index->entries[idx].mtime = st.st_mtime;
+        index->entries[idx].mtime_sec = st.st_mtime;
         index->entries[idx].size = st.st_size;
     } else {
         // add new entry
@@ -265,7 +266,7 @@ int index_add(Index *index, const char *path) {
 
         e->mode = get_file_mode(path);
         e->hash = id;
-        e->mtime = st.st_mtime;
+        e->mtime_sec = st.st_mtime;
         e->size = st.st_size;
         strcpy(e->path, path);
     }
