@@ -132,8 +132,10 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     char *slash = strrchr(dir, '/');
     if (slash) {
         *slash = '\0';
-        mkdir(dir, 0755); // ignore if exists
-    }
+         if (mkdir(dir, 0755) != 0 && access(dir, F_OK) != 0) {
+        free(full);
+        return -1;
+    }    }
 
     // Step 7: temp file path
     char tmp_path[520];
