@@ -143,6 +143,27 @@ index->count = 0;
         // index file does not exist → empty index
         return 0;
     }
+char line[512];
+
+    while (fgets(line, sizeof(line), f)) {
+        IndexEntry *e = &index->entries[index->count];
+
+        char hash_hex[65];
+        unsigned long mtime;
+        unsigned long size;
+
+        if (sscanf(line, "%o %64s %lu %lu %255[^\n]",
+                   &e->mode, hash_hex, &mtime, &size, e->path) != 5) {
+            fclose(f);
+            return -1;
+        }
+
+        hex_to_hash(hash_hex, &e->hash);
+        e->mtime = mtime;
+        e->size = size;
+
+        index->count++;
+    }
 
     fclose(f);
     return 0;    
