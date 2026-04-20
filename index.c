@@ -221,7 +221,57 @@ int index_save(const Index *index) {
 // Returns 0 on success, -1 on error.
 int index_add(Index *index, const char *path) {
     // TODO: Implement file staging
-    // (See Lab Appendix for logical steps)
-    (void)index; (void)path;
-    return -1;
+     struct stat st;
+    if (stat(path, &st) != 0) return -1;
+
+    // read file
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+
+    void *data = malloc(st.st_size);
+    if (!data) {
+        fclose(f);
+        return -1;
+    }
+
+    if (fread(data, 1, st.st_size, f) != st.st_size) {
+        free(data);
+        fclose(f);
+        return -1;
+    }
+    fclose(f);
+
+    // write blob object
+    ObjectID id;
+    if (object_write(OBJ_BLOB, data, st.st_size, &id) != 0) {
+        free(data);
+        return -1;
+    }
+
+    free(data);
+
+    // check if entry already exists
+    int idx = index_find(index, path);
+
+    if (idx >= 0) {
+        // update existing
+        index->entries[idx].mode = get_file_mode(path);
+        index->entries[idx].hash = id;
+        index->entries[idx].mtime = st.st_mtime;
+        index->entries[idx].size = st.st_size;
+    } else {
+        // add new entry
+        IndexEntry *e = &index->entries[index->count++];
+
+        e->mode = get_file_mode(path);
+        e->hash = id;
+        e->mtime = st.st_mtime;
+        e->size = st.st_size;
+        strcpy(e->path, path);
+    }
+
+    // save index
+    if (index_save(index) != 0) return -1;
+
+    return 0;
 }
