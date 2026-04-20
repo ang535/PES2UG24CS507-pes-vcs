@@ -137,15 +137,41 @@ int tree_from_index(ObjectID *id_out) {
 
     Tree tree;
     tree.count = 0;
+char dirs[1024][256];
+int dir_count = 0;
  for (int i = 0; i < index.count; i++) {
-        if (strchr(index.entries[i].path, '/') == NULL) {
-            TreeEntry *e = &tree.entries[tree.count++];
+    char *slash = strchr(index.entries[i].path, '/');
 
-            e->mode = index.entries[i].mode;
-            e->hash = index.entries[i].hash;
-            strcpy(e->name, index.entries[i].path);
+    if (slash == NULL) {
+        // root file
+        TreeEntry *e = &tree.entries[tree.count++];
+
+        e->mode = index.entries[i].mode;
+        e->hash = index.entries[i].hash;
+        strcpy(e->name, index.entries[i].path);
+    } else {
+        // directory case
+        size_t len = slash - index.entries[i].path;
+
+        char dirname[256];
+        strncpy(dirname, index.entries[i].path, len);
+        dirname[len] = '\0';
+
+        // check if already added
+        int exists = 0;
+        for (int j = 0; j < dir_count; j++) {
+            if (strcmp(dirs[j], dirname) == 0) {
+                exists = 1;
+                break;
+            }
+        }
+
+        if (!exists) {
+            strcpy(dirs[dir_count++], dirname);
         }
     }
+}
+
      void *data;
     size_t len;
 
