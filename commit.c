@@ -206,5 +206,14 @@ snprintf(buffer, sizeof(buffer),
          tree_hex,
          message);
 if (object_write(OBJ_COMMIT, buffer, strlen(buffer), commit_id_out) != 0) {
-    return -1;
+    return -1;}
+char commit_hex[65];
+hash_to_hex(commit_id_out, commit_hex);
+
+FILE *f = fopen(".pes/HEAD", "w");
+if (!f) return -1;
+
+fprintf(f, "%s\n", commit_hex);
+fclose(f);
+
 }
