@@ -215,5 +215,5 @@ if (!f) return -1;
 
 fprintf(f, "%s\n", commit_hex);
 fclose(f);
-
+return 0;
 }
