@@ -194,26 +194,65 @@ int head_update(const ObjectID *new_commit) {
 //
 // Returns 0 on success, -1 on error.
 int commit_create(const char *message, ObjectID *commit_id_out) {
+if (!message) {
+    fprintf(stderr, "error: commit requires a message (-m \"message\")\n");
+    return -1;
+}
+ObjectID tree_id;
+if (tree_from_index(&tree_id) != 0) {
+    fprintf(stderr, "error: failed to write tree\n");
+    return -1;
+}
+
+   Commit c;
+memset(&c, 0, sizeof(Commit));
+
+// tree
+c.tree = tree_id;
+
+// parent (if exists)
+if (head_read(&c.parent) == 0) {
+    c.has_parent = 1;
+} else {
+    c.has_parent = 0;
+}
+
+// author
+snprintf(c.author, sizeof(c.author), "%s", pes_author());
+
+// timestamp
+c.timestamp = (uint64_t)time(NULL);
+
+// message
+snprintf(c.message, sizeof(c.message), "%s", message);
     // TODO: Implement commit creation
-    ObjectID tree_id;
-if (tree_from_index(&tree_id) != 0) return -1;
-char tree_hex[65];
-hash_to_hex(&tree_id, tree_hex);
+    // (See Lab Appendix for logical steps)
+void *data;
+size_t len;
 
-char buffer[1024];
-snprintf(buffer, sizeof(buffer),
-         "tree %s\n\n%s\n",
-         tree_hex,
-         message);
-if (object_write(OBJ_COMMIT, buffer, strlen(buffer), commit_id_out) != 0) {
-    return -1;}
-char commit_hex[65];
-hash_to_hex(commit_id_out, commit_hex);
+if (commit_serialize(&c, &data, &len) != 0) {
+    fprintf(stderr, "error: failed to serialize commit\n");
+    return -1;
+}
+ObjectID commit_id;
 
-FILE *f = fopen(".pes/HEAD", "w");
-if (!f) return -1;
+if (object_write(OBJ_COMMIT, data, len, &commit_id) != 0) {
+    fprintf(stderr, "error: failed to write commit object\n");
+    free(data);
+    return -1;
+}
 
-fprintf(f, "%s\n", commit_hex);
-fclose(f);
+if (head_update(&commit_id) != 0) {
+    fprintf(stderr, "error: failed to update HEAD\n");
+    free(data);
+    return -1;
+}
+
+if (commit_id_out) {
+    *commit_id_out = commit_id;
+}
+
+free(data);
 return 0;
+    
 }
