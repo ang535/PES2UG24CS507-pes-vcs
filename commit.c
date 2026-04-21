@@ -197,4 +197,12 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
     // TODO: Implement commit creation
     ObjectID tree_id;
 if (tree_from_index(&tree_id) != 0) return -1;
+char tree_hex[65];
+hash_to_hex(&tree_id, tree_hex);
+
+char buffer[1024];
+snprintf(buffer, sizeof(buffer),
+         "tree %s\n\n%s\n",
+         tree_hex,
+         message);
 }
