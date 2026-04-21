@@ -25,6 +25,7 @@
 #include <dirent.h>
 
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
+uint32_t get_file_mode(const char *path);
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 
 // Find an index entry by path (linear scan).
@@ -209,7 +210,7 @@ int index_save(const Index *index) {
     }
 
     return 0;
-}}
+}
 
 // Stage a file for the next commit.
 //
@@ -252,24 +253,22 @@ int index_add(Index *index, const char *path) {
     free(data);
 
     // check if entry already exists
-    int idx = index_find(index, path);
+    IndexEntry *existing = index_find(index, path);
 
-    if (idx >= 0) {
-        // update existing
-        index->entries[idx].mode = get_file_mode(path);
-        index->entries[idx].hash = id;
-        index->entries[idx].mtime_sec = st.st_mtime;
-        index->entries[idx].size = st.st_size;
-    } else {
-        // add new entry
-        IndexEntry *e = &index->entries[index->count++];
+    if (existing) {
+    existing->mode = get_file_mode(path);
+    existing->hash = id;
+    existing->mtime_sec = st.st_mtime;
+    existing->size = st.st_size;
+} else {
+    IndexEntry *e = &index->entries[index->count++];
 
-        e->mode = get_file_mode(path);
-        e->hash = id;
-        e->mtime_sec = st.st_mtime;
-        e->size = st.st_size;
-        strcpy(e->path, path);
-    }
+    e->mode = get_file_mode(path);
+    e->hash = id;
+    e->mtime_sec = st.st_mtime;
+    e->size = st.st_size;
+    strcpy(e->path, path);
+}
 
     // save index
     if (index_save(index) != 0) return -1;
