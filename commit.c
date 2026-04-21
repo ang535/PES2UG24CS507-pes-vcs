@@ -205,4 +205,6 @@ snprintf(buffer, sizeof(buffer),
          "tree %s\n\n%s\n",
          tree_hex,
          message);
+if (object_write(OBJ_COMMIT, buffer, strlen(buffer), commit_id_out) != 0) {
+    return -1;
 }
