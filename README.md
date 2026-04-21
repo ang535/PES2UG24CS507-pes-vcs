@@ -77,7 +77,7 @@ The `.pes/` directory structure mirrors Git's `.git/`:
 
 ### Screenshot 1A — All Phase 1 Tests Passing
 
-![Phase 1 Test Output](1A.png)
+![Phase 1 Test Output](screenshots/1A.png)
 
 All three tests pass:
 - **PASS: blob storage** — object_write correctly stores data and returns the hash
@@ -86,7 +86,7 @@ All three tests pass:
 
 ### Screenshot 1B — Sharded Object Directory Structure
 
-![Object Directory Structure](1B.png)
+![Object Directory Structure](screenshots/1B.png)
 
 The object store shows the sharded directory layout. Each file path is `.pes/objects/XX/YYY...` where `XX` is the first two hex characters of the SHA-256 hash, and `YYY...` is the remaining 62 characters.
 
@@ -119,7 +119,7 @@ The object store shows the sharded directory layout. Each file path is `.pes/obj
 
 ### Screenshot 2A — All Phase 2 Tests Passing
 
-![Phase 2 Test Output](2A.png)
+![Phase 2 Test Output](screenshots/2A.png)
 
 Both tests pass:
 - **PASS: tree serialize/parse roundtrip** — a Tree struct survives a full serialize → parse cycle with all entries, modes, and hashes preserved
@@ -127,7 +127,7 @@ Both tests pass:
 
 ### Screenshot 2B — Raw Binary Format of a Tree Object
 
-![Tree Object Binary](2B.png)
+![Tree Object Binary](screenshots/2B.png)
 
 The `xxd` dump of a tree object from the object store. The file begins with the ASCII header `tree 194` followed by a null byte, then the binary entries. Each entry starts with the mode string (e.g., `100664`), a space, the filename as ASCII, a null byte, and then 32 bytes of raw binary SHA-256 hash. The non-printable binary hashes are visible in the hex columns on the left.
 
@@ -160,7 +160,7 @@ The `xxd` dump of a tree object from the object store. The file begins with the 
 
 ### Screenshot 3A — init → add → status Sequence
 
-![Phase 3 Status Output](3A.png)
+![Phase 3 Status Output](screenshots/3A.png)
 
 The output shows:
 - `pes init` successfully created the `.pes/` repository
@@ -169,7 +169,7 @@ The output shows:
 
 ### Screenshot 3B — Index File Contents
 
-![Index File Contents](3B.png)
+![Index File Contents](screenshots/3B.png)
 
 The `.pes/index` file is a human-readable text file. Each line contains:
 - File mode (`100664`)
@@ -213,7 +213,7 @@ The parent pointer creates a singly-linked list of history stretching back to th
 
 ### Screenshot 4A — `pes log` Showing Three Commits
 
-![Commit Log](4A.png)
+![Commit Log](screenshots/4A.png)
 
 Three commits are shown in reverse chronological order, each with:
 - Full SHA-256 commit hash
@@ -225,13 +225,13 @@ The parent chain correctly links: "Add farewell" → "Add world" → "Initial co
 
 ### Screenshot 4B — Object Store Growth After Three Commits
 
-![Object Store After Commits](4B.png)
+![Object Store After Commits](screenshots/4B.png)
 
 After three commits, the object store contains 11 objects plus `HEAD`, `index`, and `refs/heads/main`. The objects include blobs (file contents), trees (directory snapshots), and commits — all stored in sharded subdirectories.
 
 ### Screenshot 4C — Reference Chain
 
-![Reference Chain](4C.png)
+![Reference Chain](screenshots/4C.png)
 
 - `.pes/refs/heads/main` contains the hash of the latest commit
 - `.pes/HEAD` contains `ref: refs/heads/main`, pointing to the branch
@@ -244,8 +244,8 @@ This two-level indirection means HEAD always follows the branch automatically on
 
 ### Screenshot — Full Integration Test
 
-![Integration Test Part 1](Integration_Test1.png)
-![Integration Test Part 2](Integration_Test2.png)
+![Integration Test Part 1](screenshots/Integration_Test1.png)
+![Integration Test Part 2](screenshots/Integration_Test2.png)
 
 `make test-integration` runs `test_sequence.sh` end-to-end, verifying:
 - Repository initialization (`.pes/objects`, `.pes/refs/heads`, `.pes/HEAD` all created)
