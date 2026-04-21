@@ -25,8 +25,6 @@
 #include <dirent.h>
 
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
-uint32_t get_file_mode(const char *path);
-int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 
 // Find an index entry by path (linear scan).
 IndexEntry* index_find(Index *index, const char *path) {
@@ -136,39 +134,41 @@ int index_status(const Index *index) {
 //   - hex_to_hash                      : converting the parsed string to ObjectID
 //
 // Returns 0 on success, -1 on error.
-int index_load(Index *index) {
-    // TODO: Implement index loading
-index->count = 0;
-
+int index_load(Index *idx) {
     FILE *f = fopen(".pes/index", "r");
+
     if (!f) {
-        // index file does not exist → empty index
+        idx->count = 0;
         return 0;
     }
-char line[512];
 
-    while (fgets(line, sizeof(line), f)) {
-        IndexEntry *e = &index->entries[index->count];
+    idx->count = 0;
 
-        char hash_hex[65];
-        unsigned long mtime;
-        unsigned long size;
+    char hash_hex[65];
+    char path[256];
+    unsigned int mode;
+    long mtime;
+    long size;
 
-        if (sscanf(line, "%o %64s %lu %lu %255[^\n]",
-                   &e->mode, hash_hex, &mtime, &size, e->path) != 5) {
-            fclose(f);
-            return -1;
-        }
+    while (fscanf(f, "%o %64s %ld %ld %255s",
+                  &mode, hash_hex, &mtime, &size, path) == 5) {
 
-        hex_to_hash(hash_hex, &e->hash);
+        if (idx->count >= MAX_INDEX_ENTRIES) break;
+
+        IndexEntry *e = &idx->entries[idx->count++];
+
+        e->mode = mode;
         e->mtime_sec = mtime;
         e->size = size;
 
-        index->count++;
+        strncpy(e->path, path, sizeof(e->path) - 1);
+        e->path[sizeof(e->path) - 1] = '\0';
+
+        hex_to_hash(hash_hex, &e->hash);
     }
 
     fclose(f);
-    return 0;    
+    return 0;
 }
 
 // Save the index to .pes/index atomically.
@@ -182,31 +182,37 @@ char line[512];
 //
 // Returns 0 on success, -1 on error.
 int index_save(const Index *index) {
-    // TODO: Implement atomic index saving
-    FILE *f = fopen(".pes/index.tmp", "w");
+    char temp_path[] = ".pes/index.tmp";
+
+    FILE *f = fopen(temp_path, "w");
     if (!f) return -1;
 
     for (int i = 0; i < index->count; i++) {
-        const IndexEntry *e = &index->entries[i];
-
         char hash_hex[65];
-        hash_to_hex(&e->hash, hash_hex);
+        hash_to_hex(&index->entries[i].hash, hash_hex);
 
-        fprintf(f, "%o %s %lu %lu %s\n",
-                e->mode,
-                hash_hex,
-                e->mtime_sec,
-                e->size,
-                e->path);
-    }
+        fprintf(f, "%o %s %ld %ld %s\n",
+        index->entries[i].mode,
+        hash_hex,
+        (long)index->entries[i].mtime_sec,
+        (long)index->entries[i].size,
+        index->entries[i].path);
+        }
 
     fflush(f);
     fsync(fileno(f));
     fclose(f);
 
-    // atomic rename
-    if (rename(".pes/index.tmp", ".pes/index") != 0) {
+    
+    if (rename(temp_path, ".pes/index") != 0) {
         return -1;
+    }
+
+  
+    int dir_fd = open(".pes", O_RDONLY);
+    if (dir_fd >= 0) {
+        fsync(dir_fd);
+        close(dir_fd);
     }
 
     return 0;
@@ -222,56 +228,69 @@ int index_save(const Index *index) {
 //
 // Returns 0 on success, -1 on error.
 int index_add(Index *index, const char *path) {
-    // TODO: Implement file staging
-     struct stat st;
-    if (stat(path, &st) != 0) return -1;
-
-    // read file
+    // 1. Read file
     FILE *f = fopen(path, "rb");
-    if (!f) return -1;
+    if (!f) {
+        fprintf(stderr, "error: cannot open '%s'\n", path);
+        return -1;
+    }
 
-    void *data = malloc(st.st_size);
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+    rewind(f);
+
+    void *data = malloc(size);
     if (!data) {
         fclose(f);
         return -1;
     }
 
-    if (fread(data, 1, st.st_size, f) != st.st_size) {
-        free(data);
-        fclose(f);
-        return -1;
-    }
+    fread(data, 1, size, f);
     fclose(f);
 
-    // write blob object
+    // 2. Store as blob
     ObjectID id;
-    if (object_write(OBJ_BLOB, data, st.st_size, &id) != 0) {
+    if (object_write(OBJ_BLOB, data, size, &id) != 0) {
         free(data);
         return -1;
     }
-
     free(data);
 
-    // check if entry already exists
+    // 3. Check if already exists (duplicate handling)
     IndexEntry *existing = index_find(index, path);
-
     if (existing) {
-    existing->mode = get_file_mode(path);
-    existing->hash = id;
-    existing->mtime_sec = st.st_mtime;
-    existing->size = st.st_size;
-} else {
+        existing->hash = id;
+
+        struct stat st;
+        stat(path, &st);
+
+        existing->mode = st.st_mode;
+        existing->mtime_sec = st.st_mtime;
+        existing->size = st.st_size;
+
+        return index_save(index);
+    }
+
+    // 4. Add new entry
+    if (index->count >= MAX_INDEX_ENTRIES) {
+        fprintf(stderr, "error: index full\n");
+        return -1;
+    }
+
     IndexEntry *e = &index->entries[index->count++];
 
-    e->mode = get_file_mode(path);
+    strncpy(e->path, path, sizeof(e->path) - 1);
+    e->path[sizeof(e->path) - 1] = '\0';
+
     e->hash = id;
+
+    struct stat st;
+    stat(path, &st);
+
+    e->mode = st.st_mode;
     e->mtime_sec = st.st_mtime;
     e->size = st.st_size;
-    strcpy(e->path, path);
-}
 
-    // save index
-    if (index_save(index) != 0) return -1;
-
-    return 0;
+    // 5. Save index
+    return index_save(index);
 }
